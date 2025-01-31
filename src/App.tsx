@@ -41,24 +41,48 @@ function App() {
     document.getElementById('file-upload')?.click();
   };
 
+  const handleApiCall = async (endpoint: string) => {
+    if (!selectedFile) {
+      alert('Por favor, selecciona un archivo PDF primero.');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+
+    try {
+      const response = await fetch(`http://localhost:8000/pdf_app/${endpoint}/`, {
+        method: 'POST',
+        body: formData,
+      });
+      const result = await response.json();
+      console.log(result);
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  };
+
   const tools = [
     {
       id: 'merge',
       title: 'Unir PDFs',
       description: 'Combina múltiples archivos PDF en uno solo',
       icon: Merge,
+      action: handleUploadClick,
     },
     {
       id: 'edit',
       title: 'Editar Páginas',
       description: 'Elimina, reordena o extrae páginas',
       icon: Scissors,
+      action: handleUploadClick,
     },
     {
       id: 'sign',
       title: 'Firmar PDF',
       description: 'Añade tu firma digital al documento',
       icon: PenTool,
+      action: handleUploadClick,
     },
     {
       id: 'convert',
@@ -66,11 +90,11 @@ function App() {
       description: 'Convierte a Word, Excel o imágenes',
       icon: FileOutput,
       options: [
-        'PDF a Word',
-        'PDF a Excel',
-        'PDF a PowerPoint',
-        'PDF a Imagen',
-        'PDF a Texto',
+        { name: 'PDF a Word', endpoint: 'pdf_a_word' },
+        { name: 'PDF a Excel', endpoint: 'pdf_a_excel' },
+        { name: 'PDF a PowerPoint', endpoint: 'pdf_a_powerpoint' },
+        { name: 'PDF a Imagen', endpoint: 'imagen_a_pdf' },
+        { name: 'PDF a Texto', endpoint: 'pdf_a_texto' },
       ],
     },
     {
@@ -78,12 +102,14 @@ function App() {
       title: 'Eliminar Páginas',
       description: 'Elimina páginas específicas del PDF',
       icon: Trash2,
+      action: handleUploadClick,
     },
     {
       id: 'image-to-pdf',
       title: 'Imagen a PDF',
       description: 'Convierte imágenes a formato PDF',
       icon: Image,
+      action: handleUploadClick,
     },
   ];
 
@@ -123,7 +149,7 @@ function App() {
               >
                 <button
                   className={`px-3 py-4 text-sm font-medium ${darkMode ? 'text-gray-300 hover:text-blue-400' : 'text-gray-700 hover:text-blue-600'} flex items-center space-x-1 group`}
-                  onClick={() => tool.id !== 'convert' && handleUploadClick()}
+                  onClick={() => tool.id !== 'convert' && tool.action()}
                 >
                   <tool.icon className={`w-5 h-5 ${darkMode ? 'text-blue-400' : 'text-blue-500'} group-hover:text-blue-600`} />
                   <span className="ml-2">{tool.title}</span>
@@ -136,15 +162,15 @@ function App() {
                     <div className="py-1">
                       {tool.options?.map((option) => (
                         <a
-                          key={option}
+                          key={option.name}
                           href="#"
                           className={`block px-4 py-2 text-sm ${darkMode ? 'text-gray-300 hover:bg-gray-600 hover:text-blue-400' : 'text-gray-700 hover:bg-blue-50 hover:text-blue-600'}`}
                           onClick={(e) => {
                             e.preventDefault();
-                            handleUploadClick();
+                            handleApiCall(option.endpoint);
                           }}
                         >
-                          {option}
+                          {option.name}
                         </a>
                       ))}
                     </div>
@@ -190,6 +216,7 @@ function App() {
             <div 
               key={tool.id} 
               className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-6 rounded-lg shadow-sm hover:shadow-md transition-shadow`}
+              onClick={() => tool.id !== 'convert' && tool.action()}
             >
               <div className="flex items-center">
                 <tool.icon className={`w-8 h-8 ${darkMode ? 'text-blue-400' : 'text-blue-500'}`} />
