@@ -12,6 +12,7 @@ import {
   Moon,
   Sun,
 } from 'lucide-react';
+import { Document, Page } from 'react-pdf';
 
 function App() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -20,6 +21,8 @@ function App() {
     const savedMode = localStorage.getItem('darkMode');
     return savedMode ? JSON.parse(savedMode) : false;
   });
+  const [numPages, setNumPages] = useState<number | null>(null);
+  const [selectedPages, setSelectedPages] = useState<number[]>([]);
 
   useEffect(() => {
     if (darkMode) {
@@ -62,54 +65,88 @@ function App() {
     }
   };
 
+  const handlePageClick = (pageNumber: number) => {
+    setSelectedPages((prevSelectedPages) =>
+      prevSelectedPages.includes(pageNumber)
+        ? prevSelectedPages.filter((page) => page !== pageNumber)
+        : [...prevSelectedPages, pageNumber]
+    );
+  };
+
+  const handleEditPages = async () => {
+    if (!selectedFile) {
+      alert('Por favor, selecciona un archivo PDF primero.');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+    selectedPages.forEach((page, index) => {
+      formData.append(`page_number_${index}`, page.toString());
+    });
+
+    try {
+      const response = await fetch('http://localhost:8000/pdf_app/editar_pagina/', {
+        method: 'POST',
+        body: formData,
+      });
+      const result = await response.json();
+      console.log(result);
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  };
+
+  const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
+    setNumPages(numPages);
+  };
+
   const tools = [
     {
       id: 'merge',
-      title: 'Unir PDFs',
-      description: 'Combina múltiples archivos PDF en uno solo',
+      title: 'Merge PDFs',
+      description: 'Combine multiple PDF files into one.',
       icon: Merge,
-      action: handleUploadClick,
+      action: () => handleApiCall('merge'),
+    },
+    {
+      id: 'split',
+      title: 'Split PDF',
+      description: 'Split a PDF file into multiple files.',
+      icon: Scissors,
+      action: () => handleApiCall('split'),
     },
     {
       id: 'edit',
-      title: 'Editar Páginas',
-      description: 'Elimina, reordena o extrae páginas',
-      icon: Scissors,
-      action: handleUploadClick,
-    },
-    {
-      id: 'sign',
-      title: 'Firmar PDF',
-      description: 'Añade tu firma digital al documento',
+      title: 'Edit PDF',
+      description: 'Edit the content of your PDF file.',
       icon: PenTool,
-      action: handleUploadClick,
+      action: () => handleApiCall('edit'),
     },
     {
       id: 'convert',
-      title: 'Convertir Formato',
-      description: 'Convierte a Word, Excel o imágenes',
+      title: 'Convert PDF',
+      description: 'Convert your PDF file to other formats.',
       icon: FileOutput,
       options: [
-        { name: 'PDF a Word', endpoint: 'pdf_a_word' },
-        { name: 'PDF a Excel', endpoint: 'pdf_a_excel' },
-        { name: 'PDF a PowerPoint', endpoint: 'pdf_a_powerpoint' },
-        { name: 'PDF a Imagen', endpoint: 'imagen_a_pdf' },
-        { name: 'PDF a Texto', endpoint: 'pdf_a_texto' },
+        { name: 'To Word', endpoint: 'convert_to_word' },
+        { name: 'To Excel', endpoint: 'convert_to_excel' },
+        { name: 'To Image', endpoint: 'convert_to_image' },
       ],
     },
     {
       id: 'delete',
-      title: 'Eliminar Páginas',
-      description: 'Elimina páginas específicas del PDF',
+      title: 'Delete Pages',
+      description: 'Delete specific pages from your PDF file.',
       icon: Trash2,
-      action: handleUploadClick,
+      action: () => handleApiCall('delete_pages'),
     },
     {
-      id: 'image-to-pdf',
-      title: 'Imagen a PDF',
-      description: 'Convierte imágenes a formato PDF',
+      id: 'add_image',
+      title: 'Add Image',
+      description: 'Add images to your PDF file.',
       icon: Image,
-      action: handleUploadClick,
+      action: () => handleApiCall('add_image'),
     },
   ];
 
@@ -149,7 +186,7 @@ function App() {
               >
                 <button
                   className={`px-3 py-4 text-sm font-medium ${darkMode ? 'text-gray-300 hover:text-blue-400' : 'text-gray-700 hover:text-blue-600'} flex items-center space-x-1 group`}
-                  onClick={() => tool.id !== 'convert' && tool.action()}
+                  onClick={() => tool.id !== 'convert' && tool.action && tool.action()}
                 >
                   <tool.icon className={`w-5 h-5 ${darkMode ? 'text-blue-400' : 'text-blue-500'} group-hover:text-blue-600`} />
                   <span className="ml-2">{tool.title}</span>
@@ -216,7 +253,7 @@ function App() {
             <div 
               key={tool.id} 
               className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-6 rounded-lg shadow-sm hover:shadow-md transition-shadow`}
-              onClick={() => tool.id !== 'convert' && tool.action()}
+              onClick={() => tool.id !== 'convert' && tool.action && tool.action()}
             >
               <div className="flex items-center">
                 <tool.icon className={`w-8 h-8 ${darkMode ? 'text-blue-400' : 'text-blue-500'}`} />
@@ -240,14 +277,27 @@ function App() {
               </h2>
               <button
                 className="flex items-center px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-                onClick={() => {/* Handle download */}}
+                onClick={handleEditPages}
               >
                 <Download className="w-5 h-5 mr-2" />
-                Descargar PDF
+                Editar Páginas
               </button>
             </div>
             <div className={`aspect-[1/1.4] ${darkMode ? 'bg-gray-700' : 'bg-gray-100'} rounded-lg flex items-center justify-center`}>
-              <p className={darkMode ? 'text-gray-400' : 'text-gray-500'}>Vista previa del PDF</p>
+              <Document
+                file={selectedFile}
+                onLoadSuccess={onDocumentLoadSuccess}
+              >
+                {Array.from(new Array(numPages), (el, index) => (
+                  <div
+                    key={`page_${index + 1}`}
+                    className={`relative ${selectedPages.includes(index + 1) ? 'border-4 border-red-500' : ''}`}
+                    onClick={() => handlePageClick(index + 1)}
+                  >
+                    <Page pageNumber={index + 1} />
+                  </div>
+                ))}
+              </Document>
             </div>
           </div>
         )}

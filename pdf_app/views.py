@@ -5,7 +5,7 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 from PIL import Image
 from pdf2docx import Converter
-from pdf2pptx import pdf2pptx
+import pdf2pptx
 import pdfplumber
 import pandas as pd
 import io
